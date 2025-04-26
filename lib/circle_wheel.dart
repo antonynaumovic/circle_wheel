@@ -241,6 +241,8 @@ class CircleWheelState extends State<CircleWheel>
   /// 아이템의 핫스팟 상태를 추적하기 위한 맵
   Map<int, bool> _hotspotStates = {};
 
+  Map<int, bool> _angleHotspotStates = {};
+
   @override
   void initState() {
     super.initState();
@@ -336,12 +338,64 @@ class CircleWheelState extends State<CircleWheel>
     return false;
   }
 
+  bool _isInAngleHotspot(double angle) {
+    if (widget.hotspotAngle == null) {
+      return false;
+    }
+
+    // 현재 회전값을 고려한 실제 각도 계산
+    final actualAngle = (angle + _rotationValue) % (2 * math.pi);
+
+    // 검사할 핫스팟 각도들 목록 생성
+    List<double> hotspotAngles = [];
+    if (widget.hotspotAngle != null) {
+      hotspotAngles.add(widget.hotspotAngle!);
+    }
+
+    // 각 핫스팟에 대해 검사
+    for (double hotspotAngle in hotspotAngles) {
+      // 핫스팟 각도를 0~2π 범위로 정규화
+      final normalizedHotspotAngle = hotspotAngle % (2 * math.pi);
+
+      // 각도 차이 계산 (회전값 고려)
+      final difference = (actualAngle - normalizedHotspotAngle).abs();
+
+      // 360도를 고려한 최소 각도 차이 계산
+      final wrappedDifference = math.min(
+        difference,
+        2 * math.pi - difference,
+      );
+
+      // 하나의 핫스팟이라도 범위 내에 있으면 true 반환
+      if (wrappedDifference <= widget.hotspotRange) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   /// Handles hotspot state changes and triggers callbacks
   /// 핫스팟 상태 변경을 처리하고 콜백을 호출합니다.
   void _checkHotspotStateChanges(int index, bool currentState) {
     bool previousState = _hotspotStates[index] ?? false;
     if (currentState != previousState) {
       _hotspotStates[index] = currentState;
+      if (currentState) {
+        widget.onItemEnterHotspot?.call(index);
+        if (widget.hapticFeedback) {
+          HapticFeedback.lightImpact();
+        }
+      } else {
+        widget.onItemExitHotspot?.call(index);
+      }
+    }
+  }
+
+  void _checkAngleHotspotStateChanges(int index, bool currentState) {
+    bool previousState = _angleHotspotStates[index] ?? false;
+    if (currentState != previousState) {
+      _angleHotspotStates[index] = currentState;
       if (currentState) {
         widget.onItemEnterHotspot?.call(index);
         if (widget.hapticFeedback) {
@@ -514,8 +568,12 @@ class CircleWheelState extends State<CircleWheel>
             ((widget.endAngle ?? (2 * math.pi)) - widget.startAngle) /
             widget.itemCount);
 
-    final isAtHotspot = _isInHotspot(angle);
-    _checkHotspotStateChanges(index, isAtHotspot);
+    //final isAtHotspot = _isInHotspot(angle);
+
+    final isAtAngleHotspot = _isInAngleHotspot(angle);
+
+    // _checkHotspotStateChanges(index, isAtHotspot);
+    _checkAngleHotspotStateChanges(index, isAtAngleHotspot);
 
     double rotationAngle;
     switch (widget.rotation) {
@@ -533,7 +591,7 @@ class CircleWheelState extends State<CircleWheel>
         break;
     }
 
-    final scale = isAtHotspot ? widget.hotspotScale : widget.itemScale;
+    final scale = isAtAngleHotspot ? widget.hotspotScale : widget.itemScale;
 
     return Transform(
       transform: Matrix4.identity()
@@ -555,7 +613,7 @@ class CircleWheelState extends State<CircleWheel>
                 child: AnimatedContainer(
                   duration: widget.hotspotTransitionDuration,
                   alignment: widget.itemAlignment,
-                  child: widget.itemBuilder(index, isAtHotspot),
+                  child: widget.itemBuilder(index, isAtAngleHotspot),
                 ),
               ),
             ),
