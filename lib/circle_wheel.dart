@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
 
+
 enum RadialRotation {
   toTop,
   toCenter,
@@ -161,6 +162,8 @@ class CircleWheel extends StatefulWidget {
   /// 아이템이 다시 나타나는 각도 (라디안)
   final double? visibilityEndAngle;
 
+  final bool snapOnPress;
+
   /// Creates a CircleWheel widget with customizable options for rotation,
   /// interaction, styling, and performance.
   /// 회전, 상호작용, 스타일링 및 성능을 위한 커스터마이징 옵션으로 CircleWheel 위젯을 생성합니다.
@@ -173,6 +176,8 @@ class CircleWheel extends StatefulWidget {
     this.canRotate = false,
     this.hotspotAngle,
     this.hotspotRange = math.pi / 12,
+
+    this.snapOnPress = true,
 
     // Animation options
     this.rotationDuration = const Duration(milliseconds: 300),
@@ -209,6 +214,8 @@ class CircleWheel extends StatefulWidget {
     this.rotationEnabled = true,
     this.hapticFeedback = true,
 
+
+
     // Performance options
     this.renderOnlyVisible = true,
     this.visibilityStartAngle,
@@ -223,7 +230,7 @@ class CircleWheelState extends State<CircleWheel>
     with SingleTickerProviderStateMixin {
   /// Current rotation value of the wheel
   /// 휠의 현재 회전 값
-  double _rotationValue = 0.0;
+  double _rotationValue = 0.785398;
 
   /// Starting position of rotation gesture
   /// 회전 제스처의 시작 위치
@@ -485,6 +492,7 @@ class CircleWheelState extends State<CircleWheel>
     final targetRotation =
         widget.hotspotAngle != null ? widget.hotspotAngle! - itemAngle : 0.0;
 
+    print("setting angle to index: ${index}");
     setState(() {
       _rotationValue = targetRotation;
     });
@@ -607,13 +615,33 @@ class CircleWheelState extends State<CircleWheel>
           child: Padding(
             padding: widget.itemPadding,
             child: GestureDetector(
-              onTap: () => widget.onItemSelected?.call(index),
+              onTap: () => widget.snapOnPress ? widget.onItemSelected?.call(index) : setRotation(index),
               child: Semantics(
                 label: widget.semanticsLabel?.call(index),
                 child: AnimatedContainer(
                   duration: widget.hotspotTransitionDuration,
                   alignment: widget.itemAlignment,
-                  child: widget.itemBuilder(index, isAtAngleHotspot),
+                  child: AnimatedScale(
+                                  duration: const Duration(milliseconds: 200),
+                                  scale: isAtAngleHotspot ? 2.2 : 1.75,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      IconButton.filled(
+                                        onPressed: () => {setRotation(index)},
+                                        icon: Icon(
+                                          Icons.star,
+                                          size: isAtAngleHotspot ? 32 : 24,
+                                          color:
+                                              isAtAngleHotspot
+                                                  ? Colors.amber
+                                                  : Colors.grey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                  // child: widget.itemBuilder(index, isAtAngleHotspot),
                 ),
               ),
             ),
